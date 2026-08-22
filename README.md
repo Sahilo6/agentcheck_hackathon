@@ -43,16 +43,33 @@ Three things follow, and a wrapper around an LLM judge cannot have any of them:
 
 ---
 
-## Status
+## What it does today
 
-Early. The engine, mock world, detectors, and scorecard work end to end and are
-covered by tests. Scenario generation, reports, history, CLI, and the web
-dashboard are in progress.
+Seven built-in seed scenarios, expanded by a deterministic mutation ladder into
+**182 scenarios**, run against two versions of the same DevOps assistant:
+
+| Agent | Pass rate | Findings |
+|---|---|---|
+| `devops-assistant-v1` (naive) | **36%** | 289, every one decided without a model |
+| `devops-assistant-v2` (guardrails added) | **100%** | **0** |
+
+The second row is the one that matters. A correct agent survives all 182
+adversarial scenarios without tripping a single detector, which is what makes the
+289 findings on the first row worth believing.
+
+The unmutated seeds -- the kind of test a person writes by hand -- pass at a much
+higher rate than the mutated suite. That gap is the whole pitch: happy-path
+testing hides these failures.
+
+**No API key needed.** Built-in seeds plus code-driven mutations require no model.
+LLM generation adds breadth on top; it is not a prerequisite.
 
 ```
 $ python3 -m pytest -q
-73 passed
+147 passed
 ```
+
+Still to come: CLI, HTML/JUnit reports, regression history, MCP adapter, web dashboard.
 
 ---
 

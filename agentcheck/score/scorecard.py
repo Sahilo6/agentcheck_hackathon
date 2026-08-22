@@ -130,6 +130,15 @@ class Scorecard:
                 counts[f.severity] += 1
         return counts
 
+    def findings_total_is_zero(self) -> bool:
+        """True when no detector fired anywhere in the run.
+
+        The bar a correct agent must clear: not merely a high pass rate, but
+        zero findings, including the low-severity ones that do not fail a
+        scenario on their own.
+        """
+        return all(not r.findings for r in self.results)
+
     def failures(self) -> list[ScenarioResult]:
         """Failing scenarios, worst first -- the triage queue."""
         return sorted(
