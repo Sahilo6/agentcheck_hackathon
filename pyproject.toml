@@ -40,8 +40,9 @@ dev = ["pytest>=8.0"]
 agentcheck = "agentcheck.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/Sahilo6/agentcheck"
-Repository = "https://github.com/Sahilo6/agentcheck"
+Homepage = "https://github.com/Sahilo6/agentcheck_hackathon"
+Repository = "https://github.com/Sahilo6/agentcheck_hackathon"
+Issues = "https://github.com/Sahilo6/agentcheck_hackathon/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["agentcheck"]

@@ -93,8 +93,8 @@ That is what makes a verdict possible instead of a guess.
 ## Install
 
 ```bash
-git clone https://github.com/<owner>/agentcheck
-cd agentcheck
+git clone https://github.com/Sahilo6/agentcheck_hackathon
+cd agentcheck_hackathon
 pip install -e ".[dev]"
 python3 -m pytest -q
 ```
