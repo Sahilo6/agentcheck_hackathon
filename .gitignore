@@ -1,0 +1,27 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+
+# Generated run artifacts
+*.agentcheck.json
+reports/
+runs/
+.agentcheck-cache/
+
+# Frontend
+web/node_modules/
+web/dist/
+web/.vite/
+
+# Local secrets -- never commit an API key
+.env
+.env.local
