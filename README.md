@@ -66,10 +66,81 @@ LLM generation adds breadth on top; it is not a prerequisite.
 
 ```
 $ python3 -m pytest -q
-147 passed
+176 passed
 ```
 
-Still to come: CLI, HTML/JUnit reports, regression history, MCP adapter, web dashboard.
+Still to come: MCP adapter, a second domain, and the web dashboard.
+
+---
+
+## Try it
+
+No API key, no configuration, no network:
+
+```bash
+agentcheck demo
+```
+
+```
+  182 scenarios from 7 seeds
+  generated offline by the mutation ladder, no API calls
+
+  devops-assistant-v1
+  36% pass  66/182 scenarios
+  critical 50  high 152  medium 87
+  289/289 findings decided without a model
+
+  devops-assistant-v2
+  100% pass  182/182 scenarios
+  no findings
+
+  the gap
+    36% -> 100%  on the identical suite, after adding guardrails
+    hand-written-style scenarios pass at 71%, adversarial variants at 35%
+```
+
+That last line is the point: the tests a person writes by hand pass at 71%.
+The adversarial variants are where the agent falls over.
+
+### Test your own agent
+
+Any importable class with three methods (`begin`, `step`, and an `id`) works:
+
+```bash
+agentcheck run --agent myapp.agents:SupportAgent \
+  --out report.html --junit results.xml
+```
+
+### Gate CI on regressions
+
+```bash
+agentcheck run --agent myapp.agents:SupportAgent \
+  --label support-agent \
+  --history .agentcheck/history.jsonl \
+  --fail-on-new
+```
+
+`--fail-on-new` exits non-zero only when a scenario that used to pass starts
+failing. Failing on the pre-existing backlog would make the tool impossible to
+adopt on a codebase that already has problems.
+
+Or in a workflow:
+
+```yaml
+- uses: Sahilo6/agentcheck_hackathon@main
+  with:
+    agent: myapp.agents:SupportAgent
+    fail-on: new
+```
+
+### Other commands
+
+```bash
+agentcheck taxonomy      # the 10 failure modes, with remediation
+agentcheck mutations     # the adversarial ladder
+agentcheck scenarios -v  # the generated suite
+agentcheck generate      # LLM seed generation (needs a provider)
+```
 
 ---
 

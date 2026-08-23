@@ -1,0 +1,64 @@
+name: agentcheck
+description: Run agent reliability scenarios and fail the build on new failures.
+branding:
+  icon: shield
+  color: red
+
+inputs:
+  agent:
+    description: "Agent to test, as module:ClassName"
+    required: true
+  domain:
+    description: Scenario domain
+    required: false
+    default: devops
+  history:
+    description: Path to the run-history JSONL used for regression gating
+    required: false
+    default: .agentcheck/history.jsonl
+  label:
+    description: Stable agent name for the history lineage
+    required: false
+    default: ""
+  fail-on:
+    description: "'new' fails only on regressions; 'any' fails on any finding"
+    required: false
+    default: new
+  report:
+    description: Path for the HTML report
+    required: false
+    default: agentcheck-report.html
+  junit:
+    description: Path for the JUnit XML
+    required: false
+    default: agentcheck-results.xml
+
+outputs:
+  pass-rate:
+    description: Fraction of scenarios that passed
+    value: ${{ steps.check.outputs.pass-rate }}
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: pip install --quiet agentcheck
+    - id: check
+      shell: bash
+      run: |
+        set -o pipefail
+        FLAG="--fail-on-new"
+        if [ "${{ inputs.fail-on }}" = "any" ]; then FLAG="--fail-on-findings"; fi
+        LABEL=""
+        if [ -n "${{ inputs.label }}" ]; then LABEL="--label ${{ inputs.label }}"; fi
+        mkdir -p "$(dirname "${{ inputs.history }}")"
+        agentcheck run \
+          --agent "${{ inputs.agent }}" \
+          --domain "${{ inputs.domain }}" \
+          --history "${{ inputs.history }}" \
+          --json /tmp/agentcheck.json \
+          --out "${{ inputs.report }}" \
+          --junit "${{ inputs.junit }}" \
+          $LABEL $FLAG
+        RATE=$(python -c "import json;print(json.load(open('/tmp/agentcheck.json'))['pass_rate'])")
+        echo "pass-rate=$RATE" >> "$GITHUB_OUTPUT"

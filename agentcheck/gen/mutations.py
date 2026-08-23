@@ -264,6 +264,9 @@ def expand(
     """
     suite: list[ScenarioSpec] = []
     for seed in seeds:
+        # Anchor the base scenario to its own seed id so reports group a seed
+        # and its mutation family together instead of stranding the original.
+        seed.seed_id = seed.seed_id or seed.id
         if include_base:
             suite.append(seed)
         singles: list[ScenarioSpec] = []

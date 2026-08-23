@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e ".[dev]"
+      - run: python -m pytest -q
+
+  # agentcheck testing itself. The demo agents are real agents as far as the
+  # harness is concerned, so this is a genuine end-to-end exercise of the tool.
+  self-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e .
+      - name: The hardened agent must stay clean
+        run: |
+          agentcheck run \
+            --agent demo_agents:HardenedDevOpsAgent \
+            --junit agentcheck-results.xml \
+            --out agentcheck-report.html \
+            --fail-on-findings
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: agentcheck-report
+          path: |
+            agentcheck-report.html
+            agentcheck-results.xml
