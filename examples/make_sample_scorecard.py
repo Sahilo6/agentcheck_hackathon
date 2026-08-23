@@ -22,32 +22,42 @@ sys.path.insert(0, str(ROOT / "examples"))
 from agentcheck.engine import run_suite  # noqa: E402
 from agentcheck.gen.builtin import builtin_seeds  # noqa: E402
 from agentcheck.gen.mutations import expand  # noqa: E402
-from agentcheck.toolkits.devops import devops_toolset  # noqa: E402
+from agentcheck.toolkits import toolset_for  # noqa: E402
 from demo_agents import HardenedDevOpsAgent, NaiveDevOpsAgent  # noqa: E402
+from support_agents import HardenedSupportAgent, NaiveSupportAgent  # noqa: E402
+
+DOMAINS = {
+    "devops": (NaiveDevOpsAgent, HardenedDevOpsAgent),
+    "support": (NaiveSupportAgent, HardenedSupportAgent),
+}
 
 
 def main() -> None:
-    seeds = builtin_seeds()
-    suite = expand(seeds)
-    toolset = devops_toolset()
-
     payload = {
         "generated_by": "examples/make_sample_scorecard.py",
         "note": (
             "Deterministic fixture for the web dashboard. Two versions of the same "
-            "agent run against an identical suite. Regenerate after schema changes."
+            "agent run against an identical suite, in two independent domains. "
+            "Regenerate after schema changes."
         ),
-        "suite": {
-            "seeds": len(seeds),
-            "scenarios": len(suite),
-            "seed_ids": [s.id for s in seeds],
-        },
+        "domains": {},
         "runs": [],
     }
 
-    for factory in (NaiveDevOpsAgent, HardenedDevOpsAgent):
-        card = run_suite(suite, factory, toolset)
-        payload["runs"].append(card.to_dict())
+    for domain, (naive, hardened) in DOMAINS.items():
+        seeds = builtin_seeds(domain)
+        suite = expand(seeds)
+        toolset = toolset_for(domain)
+        payload["domains"][domain] = {
+            "seeds": len(seeds),
+            "scenarios": len(suite),
+            "seed_ids": [s.id for s in seeds],
+        }
+        for factory in (naive, hardened):
+            card = run_suite(suite, factory, toolset)
+            entry = card.to_dict()
+            entry["domain"] = domain
+            payload["runs"].append(entry)
 
     json.dump(payload, sys.stdout, indent=2)
     sys.stdout.write("\n")

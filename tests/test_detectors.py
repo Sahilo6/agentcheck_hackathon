@@ -159,7 +159,8 @@ def test_writing_outside_scope_is_drift():
         )
     )
     findings = [f for f in detect_all(spec, trace) if f.mode == "goal_drift"]
-    assert findings and "/etc/app/config.yml" in findings[0].evidence["paths"]
+    assert findings and "/etc/app/config.yml" in findings[0].evidence["targets"]
+    assert findings[0].evidence["dimensions"] == ["paths"]
 
 
 def test_drift_and_destructive_do_not_double_count_one_event():

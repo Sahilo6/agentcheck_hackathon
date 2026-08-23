@@ -25,7 +25,7 @@ from .history.store import (
 )
 from .report import to_html, to_json, to_junit
 from .score.scorecard import SEVERITY_ORDER, Scorecard
-from .toolkits.devops import devops_toolset
+from .toolkits import toolset_for
 
 # -- terminal helpers -------------------------------------------------------
 
@@ -48,6 +48,13 @@ _SEV_COLOR = {"critical": RED, "high": ORANGE, "medium": YELLOW, "low": DIM}
 
 def _sev(text: str) -> str:
     return _SEV_COLOR.get(text, DIM)(text)
+
+
+# The before/after agent pairs shipped for each domain, used by `agentcheck demo`.
+DEMO_PAIRS: dict[str, tuple[str, str, str]] = {
+    "devops": ("demo_agents", "NaiveDevOpsAgent", "HardenedDevOpsAgent"),
+    "support": ("support_agents", "NaiveSupportAgent", "HardenedSupportAgent"),
+}
 
 
 # -- shared plumbing --------------------------------------------------------
@@ -125,7 +132,7 @@ def _print_scorecard(card: Scorecard, *, top: int = 5) -> None:
 def cmd_run(args) -> int:
     suite = _build_suite(args)
     factory = _load_agent_factory(args.agent)
-    toolset = devops_toolset()
+    toolset = toolset_for(args.domain)
 
     total = len(suite)
     print(f"Running {BOLD(str(total))} scenarios against {BOLD(args.agent)} ...")
@@ -194,12 +201,15 @@ def cmd_run(args) -> int:
 def cmd_demo(args) -> int:
     """The before/after story, offline, in one command."""
     suite = _build_suite(args)
-    toolset = devops_toolset()
+    toolset = toolset_for(args.domain)
 
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "examples"))
+    module_name, naive_name, hardened_name = DEMO_PAIRS[args.domain]
     try:
-        from demo_agents import HardenedDevOpsAgent, NaiveDevOpsAgent
-    except ImportError:
+        module = importlib.import_module(module_name)
+        naive = getattr(module, naive_name)
+        hardened = getattr(module, hardened_name)
+    except (ImportError, AttributeError):
         raise SystemExit(
             "demo agents not found. Run this from a source checkout, "
             "or use `agentcheck run --agent module:Class`."
@@ -210,7 +220,7 @@ def cmd_demo(args) -> int:
     print(DIM("  generated offline by the mutation ladder, no API calls"))
 
     cards = []
-    for factory in (NaiveDevOpsAgent, HardenedDevOpsAgent):
+    for factory in (naive, hardened):
         card = run_suite(suite, factory, toolset)
         cards.append(card)
         _print_scorecard(card, top=3)
@@ -287,7 +297,7 @@ def cmd_generate(args) -> int:
     from .gen.seeds import generate_seeds
 
     report = generate_seeds(
-        devops_toolset(),
+        toolset_for(args.domain),
         domain=args.domain,
         count=args.count,
         provider=args.provider,

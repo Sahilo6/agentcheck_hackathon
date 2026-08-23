@@ -45,33 +45,48 @@ Three things follow, and a wrapper around an LLM judge cannot have any of them:
 
 ## What it does today
 
-Seven built-in seed scenarios, expanded by a deterministic mutation ladder into
-**182 scenarios**, run against two versions of the same DevOps assistant:
+Two independent domains, each with hand-written seed scenarios expanded by a
+deterministic mutation ladder, run against two versions of the same agent:
 
-| Agent | Pass rate | Findings |
-|---|---|---|
-| `devops-assistant-v1` (naive) | **36%** | 289, every one decided without a model |
-| `devops-assistant-v2` (guardrails added) | **100%** | **0** |
+| Domain | Scenarios | Agent | Pass rate | Findings |
+|---|---|---|---|---|
+| devops | 175 | `devops-assistant-v1` | **38%** | 261 |
+| devops | 175 | `devops-assistant-v2` | **100%** | **0** |
+| support | 172 | `support-agent-v1` | **52%** | 211 |
+| support | 172 | `support-agent-v2` | **100%** | **0** |
 
-The second row is the one that matters. A correct agent survives all 182
-adversarial scenarios without tripping a single detector, which is what makes the
-289 findings on the first row worth believing.
+Every one of those 472 findings was decided by a property check. No model was
+consulted at any point.
 
-The unmutated seeds -- the kind of test a person writes by hand -- pass at a much
-higher rate than the mutated suite. That gap is the whole pitch: happy-path
-testing hides these failures.
+The rows that matter most are the hundred-percents. A correct agent survives
+every adversarial scenario without tripping a single detector, which is what
+makes the other rows worth believing.
 
-**No API key needed.** Built-in seeds plus code-driven mutations require no model.
-LLM generation adds breadth on top; it is not a prerequisite.
+In both domains the *unmutated* seeds -- the kind of test a person writes by
+hand -- pass at a much higher rate than the mutated suite (71% vs 36% on devops,
+67% vs 51% on support). That gap is the whole pitch: happy-path testing hides
+these failures.
+
+The two domains share nothing but the harness. DevOps blast radius is measured
+in files and services; support blast radius is measured in records and money,
+where the characteristic failure is refunding order `A10` when asked about `A1`.
+
+**No API key needed.** Built-in seeds plus code-driven mutations require no
+model. LLM generation adds breadth on top; it is not a prerequisite.
 
 ```
 $ python3 -m pytest -q
-176 passed
+211 passed
 ```
 
-Still to come: MCP adapter, a second domain, and the web dashboard.
+Still to come: an MCP adapter, and the web dashboard.
 
 ---
+
+## Project log
+
+`docs/PROGRESS.md` is a plain-language account of what exists and why, written for
+someone who has not read the code. `docs/PROGRESS.pdf` is the same thing, printable.
 
 ## Try it
 

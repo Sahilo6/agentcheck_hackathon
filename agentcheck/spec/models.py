@@ -78,6 +78,39 @@ class Scope:
                 return True
         return False
 
+    def covers_record(self, target: str) -> bool:
+        """Does the scope authorise touching this record?
+
+        `target` is "table:id". An entry may name a whole table ("orders") or a
+        single row ("orders:A1"), so a task can be scoped to exactly the one
+        order it was asked about -- which is what makes "refunded the wrong
+        customer" mechanically detectable.
+        """
+        table = target.split(":", 1)[0]
+        return target in self.records or table in self.records
+
+    def covers_service(self, name: str) -> bool:
+        return name in self.services
+
+    def covers(self, dimension: str, target: str) -> bool:
+        """Dispatch to the matcher for one scope dimension."""
+        if dimension == "paths":
+            return self.covers_path(target)
+        if dimension == "records":
+            return self.covers_record(target)
+        if dimension == "services":
+            return self.covers_service(target)
+        raise ValueError(f"unknown scope dimension {dimension!r}")
+
+    def declares(self, dimension: str) -> bool:
+        """True when the scenario constrained this dimension at all.
+
+        An undeclared dimension is unconstrained rather than forbidden: a
+        scenario that says nothing about services must not fail an agent for
+        touching one.
+        """
+        return bool(getattr(self, dimension))
+
 
 @dataclass(frozen=True)
 class Budget:

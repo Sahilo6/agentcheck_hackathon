@@ -9,6 +9,21 @@ changes, A regenerates it and B pulls.
 
 ---
 
+## Read this first
+
+**`docs/PROGRESS.md`** (and its printable twin `docs/PROGRESS.pdf`) is the running
+plain-language log of what has been built and what it means. It assumes no
+knowledge of the code. Sahil updates it on every commit, so it is always the
+fastest way to catch up after being away for a day.
+
+Rebuild the PDF after editing the markdown:
+
+```bash
+python3 docs/build_progress.py
+```
+
+---
+
 ## Ground rules
 
 1. **Feature freeze end of 27 Aug.** Hackathons are lost on the last day by teams
@@ -42,47 +57,51 @@ fixture rendering as a raw table. Nothing pretty yet — just prove the data flo
 
 ---
 
-### Sat 23 Aug — scenario generation (A) · dashboard shell (B)
+### Sat 23 Aug — scenario generation, CLI, reports, 2nd domain ✅ DONE (A)
 
-**A**
-- [ ] `gen/seeds.py` — LLM reads tool schemas → structured seed specs (never free text)
-- [ ] `gen/mutations.py` — deterministic ladder: `time_pressure`, `authority_spoof`,
-      `ambiguity`, `distractor_entity`, `conflicting_instruction`, `injected_tool_output`
-- [ ] Disk cache for generation so runs are reproducible and work offline
-- [ ] ~12 seeds × mutations → 200+ scenarios
+Ran a day ahead, so Sunday and Monday's engine work landed today too.
 
-**B**
-- [ ] App shell: nav, routing, dark theme, layout
-- [ ] Scorecard page: headline pass rate, severity strip, taxonomy breakdown chart
-- [ ] Scenario table with pass/fail, worst severity, mutations as chips
+- [x] `gen/mutations.py` — 8 adversarial mutations, composed in pairs, all in code
+- [x] `gen/builtin.py` — hand-written seeds so the tool runs with **no API key**
+- [x] `gen/seeds.py` + `llm.py` — optional LLM generation, cached, provider-agnostic
+- [x] `history/` — JSONL run store, regression diff, CI gate verified both directions
+- [x] `report/` — self-contained HTML, JSON, JUnit XML
+- [x] `cli.py` — `demo | run | scenarios | taxonomy | mutations | generate`
+- [x] GitHub Action + repo CI on 3.11/3.12/3.13
+- [x] **Second domain: customer support.** Forced three real generality fixes
+- [x] 211 tests passing
+- [x] `docs/PROGRESS.md` + PDF — the plain-language log
 
----
-
-### Sun 24 Aug — history & reports (A) · trace viewer (B)
-
-**A**
-- [ ] `history/` — run store (JSONL), regression diff (fixed / new / still-failing)
-- [ ] `report/` — HTML, JSON, JUnit XML
-- [ ] `cli.py` — `generate | run | replay | report | ci`
-
-**B**
-- [ ] **Trace viewer** — the drill-down for demo step 5. Step-by-step tool calls,
-      args, results, and the exact step where the run went wrong
-- [ ] Finding cards: severity, taxonomy title, summary, expandable evidence
+**B, today:** app shell (nav, routing, dark theme). Scorecard page: pass rate,
+severity strip, `by_mode` chart, scenario table. The fixture now has **four** runs
+(naive + hardened × devops + support), so pull before you start.
 
 ---
 
-### Mon 25 Aug — breadth (A) · regression view (B)
+### Sun 24 Aug — MCP adapter (A) · trace viewer (B)
 
 **A**
 - [ ] MCP server adapter — expose the mock world over MCP so any MCP-speaking
       agent is testable with no adapter written
-- [ ] Second domain: customer-support refund agent (proves it is not hardcoded)
-- [ ] GitHub Action + JUnit output
 
 **B**
-- [ ] Regression view: v1 vs v2 side by side, fixed / new / still-failing
-- [ ] Empty, loading, and error states
+- [ ] **Trace viewer** — the drill-down for demo beats 5 and 6. Step-by-step tool
+      calls, args, results, and what the agent *claimed* beside what it did
+- [ ] Finding cards: severity, taxonomy title, summary, expandable evidence
+
+---
+
+### Mon 25 Aug — real agents (A) · regression view (B)
+
+**A**
+- [ ] LLM-backed agent adapter (Groq free tier, **fresh key**)
+- [ ] Run real naive vs hardened agents; cache the traces
+- [ ] Hunt false positives against real model output
+- [ ] Stretch: run against a real third-party open-source agent
+
+**B**
+- [ ] Regression view: v1 vs v2, fixed / new / still-failing
+- [ ] Taxonomy page (the credibility page judges will open)
 
 ---
 
@@ -148,7 +167,7 @@ here's the fix working → here's it in your CI tomorrow.*
 | Question | Answer |
 |---|---|
 | "Isn't this just an LLM wrapper?" | All 10 detectors are property checks. The only LLM call is scenario *generation*, and it is cached. |
-| "Does it only work on your demo agent?" | Two domains shipped (devops + support), plus an MCP adapter so any MCP agent works with no adapter. |
+| "Does it only work on your demo agent?" | Two domains shipped (devops + support) that share nothing but the harness. Building the second one exposed and fixed three places where the engine was secretly file-shaped. |
 | "How do you know the mock is realistic?" | We don't claim sim-to-real. We claim it is *controlled*, which is what makes the oracle possible — same reason OS and DB test suites use fixtures. |
 | "What about nondeterministic models?" | The fingerprint changes when the agent varies, and we report that as a finding rather than hiding it. |
 | "How much did AI write?" | Be straight about it. Then defend any design decision on the spot — that is the actual test. |
