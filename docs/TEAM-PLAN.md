@@ -78,11 +78,15 @@ severity strip, `by_mode` chart, scenario table. The fixture now has **four** ru
 
 ---
 
-### Sun 24 Aug — MCP adapter (A) · trace viewer (B)
+### Sun 24 Aug — MCP adapter ✅ DONE early (A) · trace viewer (B)
 
 **A**
-- [ ] MCP server adapter — expose the mock world over MCP so any MCP-speaking
-      agent is testable with no adapter written
+- [x] MCP server adapter — `agentcheck mcp-serve` exposes a scenario's mock world
+      over MCP, so any MCP-speaking agent is testable with no adapter written
+- [x] `agentcheck score` — score a recorded MCP run offline
+- [x] Equivalence proven: all 347 scenarios across both domains produce identical
+      fingerprints in-process and over MCP
+- [x] 237 tests passing
 
 **B**
 - [ ] **Trace viewer** — the drill-down for demo beats 5 and 6. Step-by-step tool

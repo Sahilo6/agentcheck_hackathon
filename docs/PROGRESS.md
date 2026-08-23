@@ -3,7 +3,7 @@
 **A plain-language progress log for the OOSC 4.0 hackathon.**
 Written so you can pick it up cold, without reading any code.
 
-Last updated: **23 August 2026** · Presenting **28 to 30 August** at IIIT Allahabad
+Last updated: **23 August 2026 (evening)** · Presenting **28 to 30 August** at IIIT Allahabad
 
 ---
 
@@ -56,12 +56,13 @@ the answer.
 | | |
 |---|---|
 | Engine | **Done and working** |
-| Automated tests | **211, all passing** |
+| Automated tests | **237, all passing** |
 | Domains covered | **2** (devops and customer support) |
 | Command line tool | **Done** |
 | Reports (HTML / JSON / CI) | **Done** |
 | Regression tracking | **Done** |
 | GitHub Action | **Done** |
+| Works with standard MCP agents | **Done** |
 | Web dashboard | **Neerav is building this** |
 | Days until we present | **5** |
 
@@ -224,6 +225,44 @@ answer to the judge question *"does this only work on your one demo?"*
 
 ---
 
+### Saturday 23 August, evening: works with real agents now
+
+Until this point, testing an agent meant writing a small Python class that
+agentcheck knew how to call. That is fine for our demo agents, but nobody is
+going to rewrite their production agent just to try our tool.
+
+So we added support for **MCP**. MCP is the standard that has appeared over the
+last year for connecting AI agents to tools, and most serious agent setups now
+speak it. What we do is stand up our fake world as an MCP server. The agent
+connects to it exactly like it would connect to a real set of tools. It sees a
+filesystem, services, a customer database. It has no idea any of it is fake, and
+no idea it is being tested. Meanwhile we are recording everything.
+
+The command is:
+
+```
+agentcheck mcp-serve --domain devops --scenario log-cleanup --out run.json
+agentcheck score run.json
+```
+
+**The important bit:** we then checked whether running an agent this way gives
+the same answer as running it the old way. We took every scenario in both
+domains, ran every agent both ways, and compared. **347 scenarios, 694 runs,
+zero differences.** Every single one produced an identical fingerprint.
+
+That matters because if the two routes disagreed even slightly, any result
+someone got through MCP would be quietly incomparable to ours, and nobody would
+notice until it mattered. Now it is a test that runs every time.
+
+One wrinkle worth knowing: MCP has no way for an agent to say *"I am finished,
+and here is what I did."* But that sentence is exactly what we check lies
+against. So we add one extra tool called `finish` that the agent is told to call
+at the end. We hide it from the agent's tool list until it is needed, because an
+agent offered a tool called "finish" will sometimes just call it instead of doing
+the work.
+
+---
+
 ## What Neerav needs to know
 
 You are building the web dashboard. **You are not blocked on Sahil at any point.**
@@ -271,8 +310,8 @@ money, wrong order, nobody alerted.
 
 | Task | Who | When |
 |---|---|---|
-| MCP adapter (lets any standard agent be tested) | Sahil | Sun 24 Aug |
 | Dashboard pages | Neerav | Sun 24 to Tue 26 Aug |
+| Try it against a real AI agent, not our fake ones | Sahil | Mon 25 Aug |
 | Slide deck | Both | Wed 27 Aug |
 | **Feature freeze** | Both | **Wed 27 Aug, midday** |
 | Practise the demo three times | Both | Wed 27 Aug |
@@ -304,3 +343,4 @@ number we show on stage comes from a saved run. Nothing live, ever.
 | **fingerprint** | A short code proving a run can be reproduced exactly |
 | **benign / trap** | A normal task, versus one where the correct answer is to refuse |
 | **deterministic** | Same input, same output, every time. No randomness |
+| **MCP** | The common standard for plugging AI agents into tools. We pretend to be one |

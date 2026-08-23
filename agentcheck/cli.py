@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import json
 import sys
 from pathlib import Path
 
 from . import __version__
+from .detect.detectors import detect_all
 from .detect.taxonomy import TAXONOMY, deterministic_share
 from .engine import run_suite
 from .gen.builtin import SEEDS_BY_DOMAIN, builtin_seeds
@@ -24,6 +26,8 @@ from .history.store import (
     previous_run,
 )
 from .report import to_html, to_json, to_junit
+from .runtime.trace import Trace
+from .spec.models import scenario_from_dict, scenario_to_dict
 from .score.scorecard import SEVERITY_ORDER, Scorecard
 from .toolkits import toolset_for
 
@@ -312,6 +316,73 @@ def cmd_generate(args) -> int:
     return 0
 
 
+def _find_scenario(args):
+    suite = _build_suite(args)
+    for spec in suite:
+        if spec.id == args.scenario:
+            return spec
+    matches = [s.id for s in suite if args.scenario in s.id][:8]
+    hint = ("\n  did you mean:\n    " + "\n    ".join(matches)) if matches else ""
+    raise SystemExit(f"no scenario {args.scenario!r} in domain {args.domain!r}{hint}")
+
+
+def cmd_mcp_serve(args) -> int:
+    """Stand up one scenario as an MCP server on stdio.
+
+    Everything the agent sees arrives over the wire, so any MCP client works
+    without writing an adapter. Logging goes to stderr because stdout is the
+    protocol channel.
+    """
+    from .mcp.server import ScenarioServer
+
+    spec = _find_scenario(args)
+    server = ScenarioServer(spec, toolset_for(args.domain), agent_id=args.label or "mcp-client")
+    print(f"agentcheck mcp: serving {spec.id} ({args.domain})", file=sys.stderr)
+
+    trace = server.serve(sys.stdin, sys.stdout)
+
+    findings = detect_all(spec, trace)
+    print(
+        f"agentcheck mcp: {len(trace.calls)} tool call(s), "
+        f"{len(findings)} finding(s), stopped={trace.stopped}",
+        file=sys.stderr,
+    )
+    for finding in findings:
+        print(f"  [{finding.severity}] {finding.mode}: {finding.summary}", file=sys.stderr)
+
+    if args.out:
+        Path(args.out).write_text(
+            json.dumps(
+                {"spec": scenario_to_dict(spec), "trace": trace.to_dict()},
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        print(f"agentcheck mcp: wrote {args.out}", file=sys.stderr)
+    return 1 if findings else 0
+
+
+def cmd_score(args) -> int:
+    """Score a run recorded by `mcp-serve`, offline."""
+    payload = json.loads(Path(args.run).read_text())
+    spec = scenario_from_dict(payload["spec"])
+    trace = Trace.from_dict(payload["trace"])
+    findings = detect_all(spec, trace)
+
+    print()
+    print(f"  {BOLD(spec.id)}  {DIM(spec.task[:90])}")
+    print(f"  fingerprint {trace.fingerprint()}  stopped={trace.stopped}  "
+          f"{len(trace.calls)} tool call(s)")
+    print()
+    if not findings:
+        print(f"  {GREEN('no findings')}")
+    for finding in findings:
+        print(f"  {_sev(finding.severity):<20} {finding.mode}")
+        print(DIM(f"      {finding.summary}"))
+    print()
+    return 1 if findings else 0
+
+
 # -- parser -----------------------------------------------------------------
 
 
@@ -369,6 +440,20 @@ def build_parser() -> argparse.ArgumentParser:
     p_gen.add_argument("--model")
     p_gen.add_argument("--refresh", action="store_true", help="ignore the cache")
     p_gen.set_defaults(func=cmd_generate)
+
+    p_mcp = sub.add_parser(
+        "mcp-serve",
+        help="serve one scenario as an MCP server on stdio (for any MCP agent)",
+    )
+    add_suite_args(p_mcp)
+    p_mcp.add_argument("--scenario", required=True, help="scenario id to serve")
+    p_mcp.add_argument("--label", help="name recorded as the agent under test")
+    p_mcp.add_argument("--out", metavar="FILE", help="write the recorded run as JSON")
+    p_mcp.set_defaults(func=cmd_mcp_serve)
+
+    p_score = sub.add_parser("score", help="score a run recorded by mcp-serve")
+    p_score.add_argument("run", metavar="FILE")
+    p_score.set_defaults(func=cmd_score)
 
     return parser
 

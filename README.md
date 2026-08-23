@@ -76,10 +76,10 @@ model. LLM generation adds breadth on top; it is not a prerequisite.
 
 ```
 $ python3 -m pytest -q
-211 passed
+237 passed
 ```
 
-Still to come: an MCP adapter, and the web dashboard.
+Still to come: the web dashboard.
 
 ---
 
@@ -147,6 +147,31 @@ Or in a workflow:
     agent: myapp.agents:SupportAgent
     fail-on: new
 ```
+
+### Test an agent that speaks MCP
+
+You do not have to write an adapter. agentcheck can stand up a scenario's mock
+world as an **MCP server**, and any MCP client connects to it as if the tools
+were real:
+
+```bash
+agentcheck mcp-serve --domain devops --scenario log-cleanup --out run.json
+agentcheck score run.json
+```
+
+The agent gets the task through the `instructions` field of the initialize
+response, sees the toolkit through `tools/list` (with `destructiveHint`
+annotations), and acts through `tools/call`. It has no idea it is being tested,
+which is the point.
+
+Both routes are held to the same standard: **every scenario in both domains
+produces a byte-identical trace whether the agent runs in-process or over MCP.**
+That equivalence is asserted in the test suite, because an MCP path that quietly
+diverged would make results gathered through it incomparable.
+
+MCP has no channel for "I am done, here is what I did", so the server injects a
+`finish` tool. Without a summary there is nothing to check a completion claim
+against, and `hallucinated_success` is our most valuable detector.
 
 ### Other commands
 
