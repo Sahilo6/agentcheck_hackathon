@@ -17,8 +17,10 @@ from . import __version__
 from .detect.detectors import detect_all
 from .detect.taxonomy import TAXONOMY, deterministic_share
 from .engine import run_suite
+from .llm import LLMError, MissingAPIKeyError
 from .gen.builtin import SEEDS_BY_DOMAIN, builtin_seeds
 from .gen.mutations import MUTATIONS, expand
+from .runtime.replay import MissingTraces
 from .history.store import (
     append_run,
     build_record,
@@ -133,13 +135,39 @@ def _print_scorecard(card: Scorecard, *, top: int = 5) -> None:
 # -- commands ---------------------------------------------------------------
 
 
+def _llm_factory(args):
+    """Build a factory for the built-in LLM agent.
+
+    Resolving the provider once, up front, so a missing API key fails
+    immediately with the free-options message rather than after the first
+    scenario has already run.
+    """
+    from .adapters.llm_agent import LLMAgent
+
+    probe = LLMAgent(provider=args.provider, model=args.model, temperature=args.temperature)
+    label = probe.id
+    print(DIM(f"  model: {label}"))
+    return lambda: LLMAgent(
+        provider=args.provider, model=args.model, temperature=args.temperature
+    ), label
+
+
 def cmd_run(args) -> int:
     suite = _build_suite(args)
-    factory = _load_agent_factory(args.agent)
     toolset = toolset_for(args.domain)
 
+    if args.replay:
+        factory, target = None, f"replay {args.replay}"
+    elif args.agent == "llm":
+        factory, target = _llm_factory(args)
+    elif args.agent:
+        factory, target = _load_agent_factory(args.agent), args.agent
+    else:
+        raise SystemExit("pass --agent module:Class, --agent llm, or --replay FILE")
+
     total = len(suite)
-    print(f"Running {BOLD(str(total))} scenarios against {BOLD(args.agent)} ...")
+    # Flushed so the header cannot appear after an error written to stderr.
+    print(f"Running {BOLD(str(total))} scenarios against {BOLD(target)} ...", flush=True)
 
     def progress(index, count, result):
         if not _COLOR:
@@ -148,7 +176,18 @@ def cmd_run(args) -> int:
         sys.stdout.write(f"\r  {mark} {index}/{count}")
         sys.stdout.flush()
 
-    card = run_suite(suite, factory, toolset, on_progress=progress)
+    try:
+        card = run_suite(
+            suite,
+            factory,
+            toolset,
+            on_progress=progress,
+            record_to=args.record,
+            replay_from=args.replay,
+            replay_partial=args.replay_partial,
+        )
+    except MissingTraces as exc:
+        raise SystemExit(f"\n{exc}")
     if _COLOR:
         sys.stdout.write("\r" + " " * 40 + "\r")
 
@@ -403,7 +442,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_run = sub.add_parser("run", help="run a suite against an agent")
     add_suite_args(p_run)
-    p_run.add_argument("--agent", required=True, metavar="module:Class")
+    p_run.add_argument(
+        "--agent",
+        metavar="module:Class",
+        help="agent to test; 'llm' uses the built-in language-model agent",
+    )
+    p_run.add_argument("--provider", help="LLM provider when --agent llm (groq, openrouter, ...)")
+    p_run.add_argument("--model", help="model name when --agent llm")
+    p_run.add_argument("--temperature", type=float, default=0.0)
+    p_run.add_argument("--record", metavar="FILE",
+                       help="append every trace to FILE so the run can be replayed offline")
+    p_run.add_argument("--replay", metavar="FILE",
+                       help="score traces from FILE instead of running the agent")
+    p_run.add_argument("--replay-partial", action="store_true",
+                       help="allow replaying a subset instead of failing on missing traces")
     p_run.add_argument("--out", metavar="FILE", help="write an HTML report")
     p_run.add_argument("--json", metavar="FILE", help="write a JSON report")
     p_run.add_argument("--junit", metavar="FILE", help="write JUnit XML for CI")
@@ -460,7 +512,19 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except MissingAPIKeyError as exc:
+        # The likeliest first-run failure. A traceback here reads as a broken
+        # tool; the message already explains the free options.
+        print(f"\n{exc}\n", file=sys.stderr)
+        return 2
+    except LLMError as exc:
+        print(f"\n{RED('provider error')}: {exc}\n", file=sys.stderr)
+        return 2
+    except KeyboardInterrupt:
+        print(DIM("\ninterrupted"), file=sys.stderr)
+        return 130
 
 
 if __name__ == "__main__":

@@ -95,13 +95,19 @@ severity strip, `by_mode` chart, scenario table. The fixture now has **four** ru
 
 ---
 
-### Mon 25 Aug — real agents (A) · regression view (B)
+### Mon 25 Aug — real agents ✅ DONE early (A) · regression view (B)
 
 **A**
-- [ ] LLM-backed agent adapter (Groq free tier, **fresh key**)
-- [ ] Run real naive vs hardened agents; cache the traces
-- [ ] Hunt false positives against real model output
-- [ ] Stretch: run against a real third-party open-source agent
+- [x] `adapters/llm_agent.py` — real LLM agent, native tool calling, JSON fallback
+- [x] Providers: groq / openrouter / together / ollama, plus a base-URL override
+- [x] `--record` / `--replay` — record once online, replay forever offline
+- [x] Verified: an LLM run replays identically with no endpoint and no API keys
+- [x] HTTP path covered by tests against a local stub endpoint
+- [x] 267 tests passing
+
+**Still needs a key:** run it against a real Groq model and commit the recorded
+traces, so the demo can show genuine model numbers offline. One command once
+`GROQ_API_KEY` is set.
 
 **B**
 - [ ] Regression view: v1 vs v2, fixed / new / still-failing

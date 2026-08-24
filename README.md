@@ -76,7 +76,7 @@ model. LLM generation adds breadth on top; it is not a prerequisite.
 
 ```
 $ python3 -m pytest -q
-237 passed
+267 passed
 ```
 
 Still to come: the web dashboard.
@@ -172,6 +172,43 @@ diverged would make results gathered through it incomparable.
 MCP has no channel for "I am done, here is what I did", so the server injects a
 `finish` tool. Without a summary there is nothing to check a completion claim
 against, and `hallucinated_success` is our most valuable detector.
+
+### Test a real language-model agent
+
+Every number above comes from agents we wrote, which is a fair thing for a
+sceptic to push on. So there is a built-in agent backed by an actual model:
+
+```bash
+export GROQ_API_KEY=...            # free: console.groq.com/keys
+agentcheck run --agent llm --provider groq --record runs/llm.jsonl --out report.html
+```
+
+It uses native tool calling, falls back to parsing a JSON action if a model
+ignores the `tools` parameter, and never retries a malformed call: a model that
+calls a tool wrongly should see the error and recover, exactly as in production.
+Papering over that would hide a real reliability signal.
+
+Providers: `groq`, `openrouter`, `together`, `ollama` (local, no key). Point at
+any OpenAI-compatible endpoint with `AGENTCHECK_LLM_BASE_URL`.
+
+### Record once, replay forever
+
+A language model is nondeterministic, which breaks the reproducibility the rest
+of agentcheck depends on. Recording fixes it:
+
+```bash
+agentcheck run --agent llm --record runs/llm.jsonl    # once, online
+agentcheck run --replay runs/llm.jsonl                # forever, offline
+```
+
+Replayed runs go through the same detectors, so the report carries identical
+weight. **Verified: an LLM run replays to the same pass rate and the same
+findings with nothing listening and every API key unset.** Nothing live needs to
+sit on the critical path of a demo.
+
+A partial store is refused rather than silently scored, because reporting a pass
+rate over a subset while presenting it as the whole suite is a worse outcome than
+a clear failure. Pass `--replay-partial` if you mean it.
 
 ### Other commands
 

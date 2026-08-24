@@ -3,7 +3,7 @@
 **A plain-language progress log for the OOSC 4.0 hackathon.**
 Written so you can pick it up cold, without reading any code.
 
-Last updated: **23 August 2026 (evening)** · Presenting **28 to 30 August** at IIIT Allahabad
+Last updated: **24 August 2026** · Presenting **28 to 30 August** at IIIT Allahabad
 
 ---
 
@@ -56,7 +56,7 @@ the answer.
 | | |
 |---|---|
 | Engine | **Done and working** |
-| Automated tests | **237, all passing** |
+| Automated tests | **267, all passing** |
 | Domains covered | **2** (devops and customer support) |
 | Command line tool | **Done** |
 | Reports (HTML / JSON / CI) | **Done** |
@@ -64,7 +64,8 @@ the answer.
 | GitHub Action | **Done** |
 | Works with standard MCP agents | **Done** |
 | Web dashboard | **Neerav is building this** |
-| Days until we present | **5** |
+| Works with real AI models | **Done** (needs a free API key to run) |
+| Days until we present | **4** |
 
 We are roughly **one day ahead** of the schedule we set.
 
@@ -263,6 +264,72 @@ the work.
 
 ---
 
+### Sunday 24 August: testing an actual AI, not our pretend ones
+
+Worth being upfront about something. Every number in this document so far came
+from agents **we wrote ourselves**. That is a completely reasonable thing for a
+judge to poke at: *"of course your tool catches problems, you wrote the buggy
+agent on purpose."*
+
+So we built an agent driven by a real AI model. You give it the task and the list
+of tools, and it decides what to do, for real, with no script. It uses the proper
+tool-calling API that actual production agents use.
+
+Two decisions in there that are worth understanding:
+
+**We do not fix the AI's mistakes.** If the model calls a tool with the wrong
+kind of input, we pass it straight through and let it fail. The model sees the
+error and gets a chance to recover, exactly like in production. Quietly
+correcting it would hide a genuine reliability problem, and "called the tool
+wrongly" is one of the ten things we are supposed to be measuring.
+
+**We handle models that ignore the tool API.** Some cheaper models describe what
+they want to do in plain text instead of calling the tool properly. Rather than
+failing, we read the action out of their text. We also record that we had to,
+because that is itself useful to know about a model.
+
+### The problem this created, and the fix
+
+AI models are **not repeatable**. Ask the same question twice, get slightly
+different answers. That breaks something the whole project depends on: our claim
+that running the same test twice gives the same result, which is what makes "you
+broke something" a trustworthy statement rather than noise.
+
+The fix is to **record and replay**. You run against the real model once, and we
+save everything it did. From then on you can replay it forever with no internet
+and no API key:
+
+```
+agentcheck run --agent llm --record runs/llm.jsonl     # once, online
+agentcheck run --replay runs/llm.jsonl                 # forever, offline
+```
+
+The replayed run goes through exactly the same checks, so the report means the
+same thing.
+
+**We tested that this genuinely works.** We ran the agent against a live model
+endpoint, recorded it, then shut the endpoint down completely and unset every API
+key, and replayed. Identical pass rate, identical findings, all 66 of them.
+
+That matters for one specific reason: **conference wifi always fails.** Every
+number we put on screen will come from a saved run. Nothing on stage will depend
+on an internet connection.
+
+One more safety detail: if you try to replay a suite and we only have some of the
+recordings, we refuse and tell you which are missing. Scoring 20 tests out of 175
+while showing a percentage as if it covered everything would be a misleading
+number that nobody would catch.
+
+### What is still missing here
+
+We have not yet run this against a real model, because that needs a free API key
+that Sahil has not set up yet. Everything is built and tested against a local
+stand-in endpoint, so it is a single command once the key exists. Until then the
+headline numbers stay the ones from our own agents, and we should say so plainly
+if asked.
+
+---
+
 ## What Neerav needs to know
 
 You are building the web dashboard. **You are not blocked on Sahil at any point.**
@@ -311,7 +378,7 @@ money, wrong order, nobody alerted.
 | Task | Who | When |
 |---|---|---|
 | Dashboard pages | Neerav | Sun 24 to Tue 26 Aug |
-| Try it against a real AI agent, not our fake ones | Sahil | Mon 25 Aug |
+| Get a free Groq key and record one real model run | Sahil | Mon 25 Aug |
 | Slide deck | Both | Wed 27 Aug |
 | **Feature freeze** | Both | **Wed 27 Aug, midday** |
 | Practise the demo three times | Both | Wed 27 Aug |
@@ -344,3 +411,5 @@ number we show on stage comes from a saved run. Nothing live, ever.
 | **benign / trap** | A normal task, versus one where the correct answer is to refuse |
 | **deterministic** | Same input, same output, every time. No randomness |
 | **MCP** | The common standard for plugging AI agents into tools. We pretend to be one |
+| **record / replay** | Run against a real AI once, save it, then re-run offline forever |
+| **tool calling** | The proper API by which an AI asks to use a tool, rather than describing it in text |

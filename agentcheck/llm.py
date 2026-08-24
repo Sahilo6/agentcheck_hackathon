@@ -15,6 +15,7 @@ import os
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from typing import Any
 
 
 class LLMError(Exception):
@@ -61,8 +62,11 @@ PROVIDERS: dict[str, Provider] = {
     ),
 }
 
-FREE_OPTIONS = """No LLM provider configured. Scenario generation needs one
-(everything else in agentcheck runs without a model).
+FREE_OPTIONS = """No LLM provider configured.
+
+Only two things need a model: generating new seed scenarios, and running the
+built-in LLM agent (--agent llm). Everything else -- the mutation ladder, the
+mock world, all ten detectors, scoring, and reports -- runs without one.
 
 Free options:
   Groq        export GROQ_API_KEY=...        https://console.groq.com/keys
@@ -86,8 +90,40 @@ def resolve_provider(name: str | None = None) -> Provider:
     raise MissingAPIKeyError(FREE_OPTIONS)
 
 
+def chat_message(
+    messages: list[dict[str, Any]],
+    *,
+    provider: str | Provider | None = None,
+    model: str | None = None,
+    temperature: float = 0.0,
+    max_tokens: int = 8000,
+    timeout: int = 120,
+    tools: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Send a chat completion and return the whole assistant message.
+
+    Returns the raw message rather than just its text because an agent needs the
+    `tool_calls` array. Every provider here speaks the OpenAI-compatible shape.
+    """
+    prov = provider if isinstance(provider, Provider) else resolve_provider(provider)
+    payload: dict[str, Any] = {
+        "model": model or prov.default_model,
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }
+    if tools:
+        payload["tools"] = tools
+        payload["tool_choice"] = "auto"
+    body = _post(prov, payload, timeout=timeout)
+    try:
+        return body["choices"][0]["message"]
+    except (KeyError, IndexError) as exc:
+        raise LLMError(f"unexpected response shape from {prov.name}: {body}") from exc
+
+
 def chat(
-    messages: list[dict[str, str]],
+    messages: list[dict[str, Any]],
     *,
     provider: str | Provider | None = None,
     model: str | None = None,
@@ -101,46 +137,60 @@ def chat(
     shift between fills is not much of a cache.
     """
     prov = provider if isinstance(provider, Provider) else resolve_provider(provider)
+    body = _post(
+        prov,
+        {
+            "model": model or prov.default_model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        },
+        timeout=timeout,
+    )
+    try:
+        return body["choices"][0]["message"]["content"]
+    except (KeyError, IndexError) as exc:
+        raise LLMError(f"unexpected response shape from {prov.name}: {body}") from exc
 
+
+# Points every provider at a different endpoint. For self-hosted or
+# OpenAI-compatible gateways, and it is how the HTTP path gets covered by tests
+# without reaching a real provider.
+BASE_URL_OVERRIDE = "AGENTCHECK_LLM_BASE_URL"
+
+
+def _post(prov: Provider, payload: dict[str, Any], *, timeout: int) -> dict[str, Any]:
+    """POST a chat-completions request and return the decoded body."""
+    url = os.environ.get(BASE_URL_OVERRIDE) or prov.base_url
     headers = {"content-type": "application/json"}
     if prov.env_key:
         key = os.environ.get(prov.env_key)
-        if not key:
+        if not key and not os.environ.get(BASE_URL_OVERRIDE):
             raise MissingAPIKeyError(
                 f"{prov.name} selected but {prov.env_key} is not set.\n\n{FREE_OPTIONS}"
             )
-        headers["authorization"] = f"Bearer {key}"
+        if key:
+            headers["authorization"] = f"Bearer {key}"
 
     # Several providers sit behind Cloudflare, which 403s the default
     # "Python-urllib/3.x" user agent outright. Identifying ourselves avoids a
     # confusing failure that looks like a bad API key.
     headers["user-agent"] = "agentcheck/0.1"
 
-    payload = {
-        "model": model or prov.default_model,
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": max_tokens,
-    }
     request = urllib.request.Request(
-        prov.base_url, data=json.dumps(payload).encode("utf-8"), headers=headers
+        url, data=json.dumps(payload).encode("utf-8"), headers=headers
     )
 
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
-            body = json.loads(response.read().decode("utf-8"))
+            return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         # Surface the response body: providers explain quota and model errors
         # there, and hiding it turns a two-second fix into a debugging session.
         detail = exc.read().decode("utf-8", "replace")[:600]
         raise LLMError(f"{prov.name} returned HTTP {exc.code}: {detail}") from exc
     except urllib.error.URLError as exc:
-        raise LLMError(f"could not reach {prov.name} at {prov.base_url}: {exc.reason}") from exc
-
-    try:
-        return body["choices"][0]["message"]["content"]
-    except (KeyError, IndexError) as exc:
-        raise LLMError(f"unexpected response shape from {prov.name}: {body}") from exc
+        raise LLMError(f"could not reach {prov.name} at {url}: {exc.reason}") from exc
 
 
 def extract_json(text: str) -> object:
