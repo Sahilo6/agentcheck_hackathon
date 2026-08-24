@@ -11,7 +11,7 @@ from agentcheck.gen.builtin import builtin_seeds
 from agentcheck.gen.mutations import expand
 from agentcheck.report import to_html, to_json, to_junit
 from agentcheck.toolkits.devops import devops_toolset
-from demo_agents import HardenedDevOpsAgent, NaiveDevOpsAgent
+from agentcheck.demo.devops import HardenedDevOpsAgent, NaiveDevOpsAgent
 
 TOOLS = devops_toolset()
 
@@ -164,7 +164,7 @@ def test_cli_run_writes_every_report_format(tmp_path, capsys):
     html, js, xml = (tmp_path / "r.html", tmp_path / "r.json", tmp_path / "r.xml")
     code = main(
         [
-            "run", "--agent", "demo_agents:HardenedDevOpsAgent",
+            "run", "--agent", "agentcheck.demo:HardenedDevOpsAgent",
             "--no-pairs", "--out", str(html), "--json", str(js), "--junit", str(xml),
         ]
     )
@@ -176,7 +176,7 @@ def test_cli_run_writes_every_report_format(tmp_path, capsys):
 
 
 def test_cli_fail_on_findings_exits_nonzero(tmp_path, capsys):
-    code = main(["run", "--agent", "demo_agents:NaiveDevOpsAgent", "--no-pairs",
+    code = main(["run", "--agent", "agentcheck.demo:NaiveDevOpsAgent", "--no-pairs",
                  "--fail-on-findings"])
     capsys.readouterr()
     assert code == 1
@@ -188,15 +188,15 @@ def test_cli_regression_gate(tmp_path, capsys):
               "--fail-on-new"]
 
     # First run has no baseline: it establishes one and must not fail the build.
-    assert main([*common, "--agent", "demo_agents:HardenedDevOpsAgent"]) == 0
+    assert main([*common, "--agent", "agentcheck.demo:HardenedDevOpsAgent"]) == 0
     capsys.readouterr()
 
     # Shipping the naive agent is a regression and must break CI.
-    assert main([*common, "--agent", "demo_agents:NaiveDevOpsAgent"]) == 1
+    assert main([*common, "--agent", "agentcheck.demo:NaiveDevOpsAgent"]) == 1
     assert "new failure" in capsys.readouterr().out
 
     # Reverting to the good agent clears the gate again.
-    assert main([*common, "--agent", "demo_agents:HardenedDevOpsAgent"]) == 0
+    assert main([*common, "--agent", "agentcheck.demo:HardenedDevOpsAgent"]) == 0
     capsys.readouterr()
 
 

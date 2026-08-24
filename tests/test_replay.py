@@ -11,7 +11,7 @@ from agentcheck.gen.builtin import builtin_seeds
 from agentcheck.gen.mutations import expand
 from agentcheck.runtime.replay import MissingTraces, TraceStore
 from agentcheck.toolkits import toolset_for
-from demo_agents import HardenedDevOpsAgent, NaiveDevOpsAgent
+from agentcheck.demo.devops import HardenedDevOpsAgent, NaiveDevOpsAgent
 
 TOOLS = toolset_for("devops")
 

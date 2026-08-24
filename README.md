@@ -236,8 +236,12 @@ agentcheck generate      # LLM seed generation (needs a provider)
 | `schema_violation` | tool called with arguments its schema rejects | low |
 | `budget_exceeded` | hit the step or call ceiling before finishing | low |
 
-Full descriptions and remediation guidance live in
-[`agentcheck/detect/taxonomy.py`](agentcheck/detect/taxonomy.py).
+Each mode is specified in **[docs/TAXONOMY.md](docs/TAXONOMY.md)**, written to be
+usable on its own: the detection methods are described in terms of what any
+harness could observe, not in terms of our implementation, so the taxonomy can be
+adopted by tools that share none of our code. It states its limits too.
+
+Implementation: [`agentcheck/detect/taxonomy.py`](agentcheck/detect/taxonomy.py).
 
 ---
 
@@ -269,6 +273,14 @@ is a test harness people skip installing.
 
 ---
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). The one rule is **precision over recall**:
+a detector that misses a real failure is survivable, one that reports a failure
+that did not happen is not.
+
+The most valuable bug report this project can get is a false positive.
+
 ## License
 
-Apache-2.0.
+Apache-2.0. See [LICENSE](LICENSE).

@@ -17,14 +17,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "examples"))
 
 from agentcheck.engine import run_suite  # noqa: E402
 from agentcheck.gen.builtin import builtin_seeds  # noqa: E402
 from agentcheck.gen.mutations import expand  # noqa: E402
 from agentcheck.toolkits import toolset_for  # noqa: E402
-from demo_agents import HardenedDevOpsAgent, NaiveDevOpsAgent  # noqa: E402
-from support_agents import HardenedSupportAgent, NaiveSupportAgent  # noqa: E402
+from agentcheck.demo.devops import HardenedDevOpsAgent, NaiveDevOpsAgent  # noqa: E402
+from agentcheck.demo.support import HardenedSupportAgent, NaiveSupportAgent  # noqa: E402
 
 DOMAINS = {
     "devops": (NaiveDevOpsAgent, HardenedDevOpsAgent),

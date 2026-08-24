@@ -32,7 +32,7 @@ jobs:
       - name: The hardened agent must stay clean
         run: |
           agentcheck run \
-            --agent demo_agents:HardenedDevOpsAgent \
+            --agent agentcheck.demo:HardenedDevOpsAgent \
             --junit agentcheck-results.xml \
             --out agentcheck-report.html \
             --fail-on-findings

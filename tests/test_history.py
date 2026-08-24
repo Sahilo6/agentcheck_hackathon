@@ -16,7 +16,7 @@ from agentcheck.history.store import (
     suite_hash,
 )
 from agentcheck.toolkits.devops import devops_toolset
-from demo_agents import HardenedDevOpsAgent, NaiveDevOpsAgent
+from agentcheck.demo.devops import HardenedDevOpsAgent, NaiveDevOpsAgent
 
 TOOLS = devops_toolset()
 

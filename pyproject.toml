@@ -47,5 +47,9 @@ Issues = "https://github.com/Sahilo6/agentcheck_hackathon/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["agentcheck"]
 
+[tool.hatch.build]
+# The licence has to travel with the wheel, not just sit in the repo.
+artifacts = ["LICENSE"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

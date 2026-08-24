@@ -15,8 +15,8 @@ from agentcheck.gen.builtin import SEEDS_BY_DOMAIN, builtin_seeds
 from agentcheck.gen.mutations import expand
 from agentcheck.gen.seeds import _already_satisfied
 from agentcheck.toolkits import toolset_for
-from demo_agents import HardenedDevOpsAgent, NaiveDevOpsAgent
-from support_agents import HardenedSupportAgent, NaiveSupportAgent
+from agentcheck.demo.devops import HardenedDevOpsAgent, NaiveDevOpsAgent
+from agentcheck.demo.support import HardenedSupportAgent, NaiveSupportAgent
 
 DOMAINS = {
     "devops": (NaiveDevOpsAgent, HardenedDevOpsAgent),

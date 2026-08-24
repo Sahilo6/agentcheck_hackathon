@@ -24,8 +24,8 @@ from agentcheck.runtime.agent import FinishAction, ToolAction
 from agentcheck.runtime.runner import run_scenario
 from agentcheck.spec.models import Budget
 from agentcheck.toolkits import toolset_for
-from demo_agents import HardenedDevOpsAgent, NaiveDevOpsAgent
-from support_agents import HardenedSupportAgent, NaiveSupportAgent
+from agentcheck.demo.devops import HardenedDevOpsAgent, NaiveDevOpsAgent
+from agentcheck.demo.support import HardenedSupportAgent, NaiveSupportAgent
 
 REPO = Path(__file__).resolve().parent.parent
 

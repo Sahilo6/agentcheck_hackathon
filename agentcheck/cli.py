@@ -56,13 +56,6 @@ def _sev(text: str) -> str:
     return _SEV_COLOR.get(text, DIM)(text)
 
 
-# The before/after agent pairs shipped for each domain, used by `agentcheck demo`.
-DEMO_PAIRS: dict[str, tuple[str, str, str]] = {
-    "devops": ("demo_agents", "NaiveDevOpsAgent", "HardenedDevOpsAgent"),
-    "support": ("support_agents", "NaiveSupportAgent", "HardenedSupportAgent"),
-}
-
-
 # -- shared plumbing --------------------------------------------------------
 
 
@@ -246,17 +239,11 @@ def cmd_demo(args) -> int:
     suite = _build_suite(args)
     toolset = toolset_for(args.domain)
 
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "examples"))
-    module_name, naive_name, hardened_name = DEMO_PAIRS[args.domain]
-    try:
-        module = importlib.import_module(module_name)
-        naive = getattr(module, naive_name)
-        hardened = getattr(module, hardened_name)
-    except (ImportError, AttributeError):
-        raise SystemExit(
-            "demo agents not found. Run this from a source checkout, "
-            "or use `agentcheck run --agent module:Class`."
-        )
+    # Shipped inside the package, so this works from a pip install and not
+    # only from a source checkout.
+    from .demo import DEMO_AGENTS
+
+    naive, hardened = DEMO_AGENTS[args.domain]
 
     print()
     print(BOLD(f"  {len(suite)} scenarios from {len(builtin_seeds(args.domain))} seeds"))
