@@ -3,7 +3,7 @@
 **A plain-language progress log for the OOSC 4.0 hackathon.**
 Written so you can pick it up cold, without reading any code.
 
-Last updated: **24 August 2026 (evening)** · Presenting **28 to 30 August** at IIIT Allahabad
+Last updated: **25 August 2026** · Presenting **28 to 30 August** at IIIT Allahabad
 
 ---
 
@@ -65,7 +65,8 @@ the answer.
 | Works with standard MCP agents | **Done** |
 | Web dashboard | **Neerav is building this** |
 | Works with real AI models | **Done** (needs a free API key to run) |
-| Days until we present | **4** |
+| Demo rehearsal check | **Automated** |
+| Days until we present | **3** |
 
 We are roughly **one day ahead** of the schedule we set.
 
@@ -371,6 +372,56 @@ That last one already earned itself: it caught that our progress log described
 the pressure types using friendly names, while the actual data uses different
 names. Since Neerav's dashboard displays those names directly, he would have hit
 a mismatch. Fixed in the table above.
+
+---
+
+### Monday 25 August: proving the opening line, and rehearsing safely
+
+**We made our opening argument real.** The demo starts by saying "here is how
+teams test agents today, and it all looks fine". Until now that was just a claim
+we made out loud. Now it is a real file anyone can run:
+`examples/how_teams_test_today.py`.
+
+It contains the five tests a normal engineer would actually write for this agent.
+Deliberately not rigged: they are calm, sensible, and they check real outcomes
+rather than just looking at the reply text. Run them and all five pass. The agent
+looks ready to ship.
+
+Then agentcheck runs on that exact same agent and finds **261 problems**.
+
+That side-by-side is the strongest thing we have, because nobody can accuse us of
+writing bad tests on purpose. The tests are fine. The point is that a person
+writes down the situation they are picturing, and agents fail in the situations
+nobody pictures.
+
+**We also automated the demo rehearsal.** There is now a script,
+`scripts/rehearse.py`, that runs the entire stage demo start to finish, one beat
+at a time, and tells you whether each would work in front of an audience.
+
+Before it runs anything it deletes every API key from the environment. So if any
+part of our demo secretly needed the internet, it fails here rather than on
+stage. Right now:
+
+```
+  1. How teams test today: 5 hand-written tests    ok   5 tests pass; the agent ships
+  2. Generate the suite                            ok   175 scenarios generated offline
+  3. Run it, render the scorecard                  ok   scorecard rendered
+  4. The number: pass rate and findings            ok   38% pass, 261 findings, none from a model
+  5. Drill into a failure                          ok   trace drill-down present
+  6. The mic-drop: claimed vs actually performed   ok   80 scenarios where the agent claimed work it never did
+  7. Fix the agent, re-run, regression view        ok   identical suite re-run: 100%, 0 new failures
+  8. Wire it into CI                               ok   CI exits 1 with 109 JUnit failures
+  9. Second domain                                 ok   second domain also runs clean
+
+  all 9 beats work offline
+```
+
+**Run this on Wednesday before rehearsing, and again before we present.** It
+takes about a second.
+
+It also runs automatically now on every code change, along with a check that
+installs the package into a completely fresh environment and uses it from a
+different folder. Between them, the demo cannot quietly break without us knowing.
 
 ---
 

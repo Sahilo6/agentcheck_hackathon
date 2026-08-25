@@ -19,6 +19,40 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: python -m pytest -q
 
+  # Runs the stage demo end to end with every provider key stripped. If a beat
+  # would break in front of an audience, it breaks here first.
+  rehearsal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e ".[dev]"
+      - run: python scripts/rehearse.py
+
+  # Installing the built wheel into a clean environment, then running from
+  # somewhere else entirely. Catches the class of bug where a command works only
+  # from a source checkout -- which `agentcheck demo` once did.
+  packaging:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install build && python -m build --wheel
+      - name: Install the wheel somewhere clean and use it
+        run: |
+          python -m venv /tmp/fresh
+          /tmp/fresh/bin/pip install dist/*.whl
+          cd /tmp
+          /tmp/fresh/bin/agentcheck --version
+          /tmp/fresh/bin/agentcheck demo
+          /tmp/fresh/bin/agentcheck demo --domain support
+          /tmp/fresh/bin/agentcheck taxonomy
+          test "$(/tmp/fresh/bin/pip list --format=freeze | grep -c agentcheck)" = "1"
+
   # agentcheck testing itself. The demo agents are real agents as far as the
   # harness is concerned, so this is a genuine end-to-end exercise of the tool.
   self-check:

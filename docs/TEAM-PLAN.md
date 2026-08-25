@@ -132,10 +132,11 @@ traces, so the demo can show genuine model numbers offline. One command once
 ### Wed 27 Aug — 🔒 FREEZE. Rehearse.
 
 - [ ] **Feature freeze at noon.** Bug fixes only after this.
-- [ ] Full demo rehearsal ×3, timed
+- [ ] Full demo rehearsal ×3, timed — run `python3 scripts/rehearse.py` first,
+      it executes all 9 beats offline with every API key stripped
 - [ ] **Record the backup video** — end to end, wifi off
 - [ ] Deck (see structure below)
-- [ ] README, taxonomy spec doc, CONTRIBUTING, a few good-first-issues
+- [x] README, taxonomy spec doc (`docs/TAXONOMY.md`), CONTRIBUTING, LICENSE
 - [ ] Repo public
 
 ---

@@ -148,6 +148,27 @@ Or in a workflow:
     fail-on: new
 ```
 
+### See the gap for yourself
+
+The five tests a team would actually write for this agent are in
+[`examples/how_teams_test_today.py`](examples/how_teams_test_today.py). They are
+not strawmen: calm, direct, checking real outcomes.
+
+```bash
+python -m pytest examples/how_teams_test_today.py -q
+# 5 passed
+```
+
+Then the same agent, through agentcheck:
+
+```
+38% pass  66/175 scenarios
+261/261 findings decided without a model
+```
+
+The difference is not test quality. A person writes the situation they have in
+mind; an agent fails in the situations nobody thinks to write down.
+
 ### Test an agent that speaks MCP
 
 You do not have to write an adapter. agentcheck can stand up a scenario's mock
