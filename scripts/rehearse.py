@@ -155,6 +155,26 @@ def main() -> int:
         assert "100%" in out and "52%" in out, out[-600:]
         return "second domain also runs clean"
 
+    def beat_deck():
+        """The deck is generated from the fixture, so its numbers cannot drift.
+
+        Regenerating here proves that is still true: if the engine's results
+        changed and nobody rebuilt the deck, the slides would be quoting figures
+        the demo no longer produces.
+        """
+        import json
+        import re
+
+        # Not `py`, which carries -m: this is a script path, not a module.
+        r.run([sys.executable, "docs/build_deck.py"])
+        deck = (ROOT / "docs" / "deck.html").read_text()
+        data = json.loads((ROOT / "web" / "fixtures" / "sample-scorecard.json").read_text())
+        for run in data["runs"]:
+            rate = f"{round(run['pass_rate'] * 100)}%"
+            assert rate in deck, f"deck is missing {run['agent_id']} at {rate}"
+        slides = len(re.findall(r'class="slide', deck))
+        return f"{slides} slides, every rate matches the fixture"
+
     r.beat(1, "How teams test today: 5 hand-written tests", beat1)
     r.beat(2, "Generate the suite", beat2)
     r.beat(3, "Run it, render the scorecard", beat3)
@@ -164,6 +184,7 @@ def main() -> int:
     r.beat(7, "Fix the agent, re-run, regression view", beat7)
     r.beat(8, "Wire it into CI", beat8)
     r.beat(9, "Second domain (answers 'only your demo?')", beat_extra)
+    r.beat(10, "Deck numbers match the data", beat_deck)
 
     print()
     total = sum(seconds for _, seconds in r.timings)
@@ -174,7 +195,7 @@ def main() -> int:
         r.cleanup()
         return 1
 
-    print(f"  {GREEN}all 9 beats work offline{RESET}  {DIM}({total:.0f}s of command time){RESET}")
+    print(f"  {GREEN}all 10 beats work offline{RESET}  {DIM}({total:.0f}s of command time){RESET}")
     slowest = max(r.timings, key=lambda t: t[1])
     print(f"  {DIM}slowest: {slowest[0]} at {slowest[1]:.1f}s{RESET}")
     print()

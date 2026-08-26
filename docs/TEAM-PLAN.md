@@ -115,17 +115,34 @@ traces, so the demo can show genuine model numbers offline. One command once
 
 ---
 
-### Tue 26 Aug — real agents (A) · polish (B)
+### Tue 26 Aug — packaging, demo artifacts, dashboard, deck ✅ DONE (A)
 
-**A**
-- [ ] LLM-backed agent adapter (Groq free tier, provider-agnostic, **fresh key**)
-- [ ] Run the real naive vs hardened agents; record and cache the traces
-- [ ] Tune detector thresholds against real output — hunt false positives
-- [ ] Stretch: run against a real third-party open-source agent
+- [x] Packaging verified from a clean venv. Caught a real bug: `agentcheck demo`
+      was broken from a `pip install` because the demo agents lived in
+      `examples/`, outside the wheel. Moved into `agentcheck/demo/`.
+- [x] `docs/TAXONOMY.md` — the ten failure modes as a standalone spec
+- [x] `CONTRIBUTING.md`, and the `LICENSE` file we had been claiming without shipping
+- [x] `tests/test_docs.py` — the docs cannot drift from the code
+- [x] `examples/how_teams_test_today.py` — demo beat 1, made real. Five
+      hand-written tests pass on an agent agentcheck finds 261 problems in
+- [x] `scripts/rehearse.py` — runs all 10 demo beats offline with every API key
+      stripped. Also wired into CI, with a clean-venv packaging job
+- [x] **Dashboard first pass** on `feat/dashboard`: four pages, verified by
+      rendering in headless Chrome
+- [x] `docs/deck.html` — 10 slides, figures generated from the fixture
+- [x] 292 tests passing
 
-**B**
-- [ ] Visual polish, responsive check, README demo gif
-- [ ] Wire the dashboard to real cached runs
+**Still needs a key (the one open item):** run the LLM agent against a real Groq
+model and commit the recorded traces, so the demo can show genuine model numbers
+offline. One command once `GROQ_API_KEY` is set:
+
+```bash
+python3 -m agentcheck.cli run --agent llm --provider groq \
+  --record runs/llm-devops.jsonl --out report.html
+```
+
+**B:** the dashboard and deck both exist now as first passes. Both want a design
+pass rather than a content pass. Take, redesign, or replace.
 
 ---
 
@@ -133,9 +150,11 @@ traces, so the demo can show genuine model numbers offline. One command once
 
 - [ ] **Feature freeze at noon.** Bug fixes only after this.
 - [ ] Full demo rehearsal ×3, timed — run `python3 scripts/rehearse.py` first,
-      it executes all 9 beats offline with every API key stripped
+      it executes all 10 beats offline with every API key stripped and checks
+      the deck's numbers against the data
 - [ ] **Record the backup video** — end to end, wifi off
-- [ ] Deck (see structure below)
+- [x] Deck drafted: `docs/deck.html`, 10 slides, numbers generated from the
+      fixture so they cannot drift. Needs a design pass, not a content pass.
 - [x] README, taxonomy spec doc (`docs/TAXONOMY.md`), CONTRIBUTING, LICENSE
 - [ ] Repo public
 
@@ -145,7 +164,7 @@ traces, so the demo can show genuine model numbers offline. One command once
 
 ---
 
-## The demo (8 beats, ~4 min)
+## The demo (8 stage beats, ~4 min)
 
 1. **"Here's how teams test agents today."** 5 hand-written prompts, all green. Ship it.
 2. `agentcheck generate` → reads tool schemas → 200+ scenarios. Show one spec.
@@ -162,7 +181,10 @@ traces, so the demo can show genuine model numbers offline. One command once
 Arc: *today's testing is theatre → here's what's really broken → here's proof →
 here's the fix working → here's it in your CI tomorrow.*
 
-## Deck (8 slides)
+`python3 scripts/rehearse.py` executes these plus a second-domain check and a
+deck-figures check, ten in total, and fails if any would break on stage.
+
+## Deck (10 slides, drafted in `docs/deck.html`)
 
 1. Title — "agentcheck: CI for autonomous agents"
 2. The problem — 70% real-world task failure; teams test with 5 prompts

@@ -3,7 +3,7 @@
 **A plain-language progress log for the OOSC 4.0 hackathon.**
 Written so you can pick it up cold, without reading any code.
 
-Last updated: **26 August 2026** · Presenting **28 to 30 August** at IIIT Allahabad
+Last updated: **26 August 2026 (evening)** · Presenting **28 to 30 August** at IIIT Allahabad
 
 ---
 
@@ -65,7 +65,8 @@ the answer.
 | Works with standard MCP agents | **Done** |
 | Web dashboard | **First pass built** (on the `feat/dashboard` branch) |
 | Works with real AI models | **Done** (needs a free API key to run) |
-| Demo rehearsal check | **Automated** |
+| Demo rehearsal check | **Automated** (10 beats) |
+| Slide deck | **Drafted**, needs a design pass |
 | Days until we present | **2** |
 
 We are roughly **one day ahead** of the schedule we set.
@@ -470,6 +471,33 @@ pages and looking at them rather than assuming:
 2. Long scenario names **overflowed their column** and got cut off mid-word.
 3. It said "1 steps" and "1 tool calls". Small, but that is the kind of thing an
    audience notices and a presenter cannot then unsee.
+
+---
+
+### Tuesday 26 August, evening: the slides
+
+Drafted the deck. It is at `docs/deck.html` — open it in a browser, arrow keys
+or space to move, `f` for fullscreen. Ten slides:
+
+1. Title
+2. The problem, with the 71% vs 36% gap
+3. Why "have an AI grade the AI" does not survive one question
+4. Our position, and the 10-of-10 claim
+5. **The proof** — what the agent said, beside what the world recorded
+6. **The taxonomy table** — the credibility slide
+7. How it works, in six stages
+8. Demo marker
+9. Results across both domains
+10. Open source
+
+**The numbers on the slides are not typed in.** They are read out of the data
+file when the deck is built. So if the engine's results ever change and somebody
+forgets to update a slide, the slide updates itself. The rehearsal script also
+checks the deck's figures against the data now, as a tenth beat.
+
+Neerav, this needs a **design** pass, not a content pass. The words and figures
+are settled; the layout is deliberately plain. If you would rather rebuild it in
+something you are comfortable with, the content is all there to lift.
 
 ---
 
