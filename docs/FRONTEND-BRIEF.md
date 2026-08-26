@@ -1,5 +1,15 @@
 # Frontend brief — agentcheck dashboard
 
+> **Status, 26 Aug:** a working first pass of this dashboard now exists on the
+> `feat/dashboard` branch: all four pages, building and rendering against the
+> real fixture. It is a starting point, not a finished thing. Treat it as
+> something to take over, redesign, or throw away, whichever is fastest for you.
+> The brief below still describes what the pages are for and why.
+>
+> ```bash
+> git checkout feat/dashboard && cd web && npm install && npm run dev
+> ```
+
 > **Paste this whole file into Claude as your first message.** It is written to be
 > self-contained: it explains the project, the data contract, and each day's task
 > without assuming any other context.

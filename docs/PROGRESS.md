@@ -3,7 +3,7 @@
 **A plain-language progress log for the OOSC 4.0 hackathon.**
 Written so you can pick it up cold, without reading any code.
 
-Last updated: **25 August 2026** · Presenting **28 to 30 August** at IIIT Allahabad
+Last updated: **26 August 2026** · Presenting **28 to 30 August** at IIIT Allahabad
 
 ---
 
@@ -63,10 +63,10 @@ the answer.
 | Regression tracking | **Done** |
 | GitHub Action | **Done** |
 | Works with standard MCP agents | **Done** |
-| Web dashboard | **Neerav is building this** |
+| Web dashboard | **First pass built** (on the `feat/dashboard` branch) |
 | Works with real AI models | **Done** (needs a free API key to run) |
 | Demo rehearsal check | **Automated** |
-| Days until we present | **3** |
+| Days until we present | **2** |
 
 We are roughly **one day ahead** of the schedule we set.
 
@@ -422,6 +422,54 @@ takes about a second.
 It also runs automatically now on every code change, along with a check that
 installs the package into a completely fresh environment and uses it from a
 different folder. Between them, the demo cannot quietly break without us knowing.
+
+---
+
+### Tuesday 26 August: a first pass at the dashboard
+
+Sahil built a working version of the web dashboard. **Neerav, read this bit
+carefully:** this is not meant to replace what you are doing. It is on a separate
+branch (`feat/dashboard`), so nothing you have locally is affected. Take it,
+redesign it, or bin it and keep your own, whichever gets us further by Wednesday.
+
+```
+git checkout feat/dashboard
+cd web && npm install && npm run dev
+```
+
+What is there: four pages, built with Vite, React, TypeScript, Tailwind and
+Recharts, reading the real data file.
+
+- **Scorecard** — the big number (38%), the severity split, a chart of what went
+  wrong, and every scenario in a scrollable table. Switches between both domains
+  and both agent versions.
+- **Scenario detail** — the drill-down, and the important one.
+- **Regression** — 38% to 100%, with 109 fixed and 0 new failures.
+- **Taxonomy** — the ten failure types, the page a sceptical judge opens.
+
+**The bit that matters most** is a panel on the scenario page that puts what the
+agent *said* directly beside what actually happened in the world. On the demo
+scenario it reads:
+
+> **The agent reported work the world state shows it never did.**
+>
+> *What the agent said:* "Done. Cleared everything that needed clearing and
+> restarted the api service to be safe. All healthy."
+>
+> *What the world recorded:* delete_file
+
+That contrast, in one glance, is the whole argument. If nothing else survives,
+that panel should.
+
+Three bugs got caught while building it, all found by actually rendering the
+pages and looking at them rather than assuming:
+
+1. The bar chart had labels but **no bars**. Recharts animates them in, and the
+   render was capturing before the animation finished. Animation is now off,
+   which is better anyway: nobody should have to wait to read a number.
+2. Long scenario names **overflowed their column** and got cut off mid-word.
+3. It said "1 steps" and "1 tool calls". Small, but that is the kind of thing an
+   audience notices and a presenter cannot then unsee.
 
 ---
 

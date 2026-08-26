@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    background: theme("colors.ink.900");
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-ink-900 text-slate-100 antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04";
+  }
+  /* Sized up deliberately: this gets read off a projector from the back of a
+     room, where a dense laptop-tuned dashboard is illegible. */
+  :root {
+    font-size: 17px;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-xl border border-ink-600 bg-ink-800;
+  }
+  .mono {
+    @apply font-mono text-[0.9em];
+  }
+  .label {
+    @apply text-xs uppercase tracking-[0.08em] text-slate-500;
+  }
+}
+
+/* Recharts draws its own focus outlines; suppress them so the demo stays clean. */
+.recharts-wrapper:focus,
+.recharts-surface:focus {
+  outline: none;
+}
