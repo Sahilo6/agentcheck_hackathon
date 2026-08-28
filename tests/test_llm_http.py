@@ -144,11 +144,46 @@ def test_a_careless_model_is_caught_over_http(endpoint):
 def test_http_error_body_is_surfaced(endpoint):
     endpoint(lambda body: (429, {"error": {"message": "rate limit reached for llama-3.3"}}))
     with pytest.raises(LLMError) as exc:
-        chat_message([{"role": "user", "content": "hi"}], provider="groq")
+        # No retries: this test is about the message, not the backoff.
+        chat_message([{"role": "user", "content": "hi"}], provider="groq", max_retries=0)
     # Providers explain quota problems in the body; hiding it turns a
     # two-second fix into a debugging session.
     assert "429" in str(exc.value)
     assert "rate limit reached" in str(exc.value)
+    # And it says what to do next.
+    assert "--seeds-only" in str(exc.value)
+
+
+def test_rate_limits_are_retried_then_succeed(endpoint):
+    """Free tiers 429 constantly; a suite that gives up on the first one is useless."""
+    calls = {"n": 0}
+
+    def responder(body):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            return 429, {"error": {"message": "TPM exceeded. Please try again in 0.01s."}}
+        return 200, message(content="finally")
+
+    endpoint(responder)
+    result = chat_message([{"role": "user", "content": "hi"}], provider="groq")
+    assert result["content"] == "finally"
+    assert calls["n"] == 3
+
+
+def test_retry_honours_the_providers_own_wait_advice():
+    from agentcheck.llm import _retry_delay
+
+    # The provider knows when its window resets; guessing is worse.
+    assert _retry_delay("Please try again in 1.5s.", 0) == pytest.approx(2.0)
+    # Without advice, back off exponentially but stay bounded.
+    assert _retry_delay("no advice here", 0) == 1.0
+    assert _retry_delay("no advice here", 10) == 30.0
+
+
+def test_retries_give_up_rather_than_hanging(endpoint):
+    endpoint(lambda body: (429, {"error": {"message": "try again in 0.01s"}}))
+    with pytest.raises(LLMError):
+        chat_message([{"role": "user", "content": "hi"}], provider="groq", max_retries=2)
 
 
 def test_unexpected_response_shape_is_reported(endpoint):

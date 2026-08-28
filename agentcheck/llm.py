@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -34,12 +36,22 @@ class Provider:
     default_model: str
 
 
+# Free tiers rate-limit by tokens per minute, and a suite makes hundreds of
+# calls in seconds, so 429s are the normal case rather than an exception.
+# Providers tell us how long to wait; honouring that is the difference between
+# a run that completes and one that reports nothing.
+_RETRY_AFTER = re.compile(r"try again in ([0-9.]+)s", re.I)
+MAX_RETRIES = 5
+
+
 PROVIDERS: dict[str, Provider] = {
     "groq": Provider(
         "groq",
         "https://api.groq.com/openai/v1/chat/completions",
         "GROQ_API_KEY",
-        "llama-3.3-70b-versatile",
+        # Model availability on Groq changes; pass --model if this one is gone.
+        # `agentcheck models --provider groq` lists what a key can actually use.
+        "openai/gpt-oss-120b",
     ),
     "openrouter": Provider(
         "openrouter",
@@ -99,6 +111,7 @@ def chat_message(
     max_tokens: int = 8000,
     timeout: int = 120,
     tools: list[dict[str, Any]] | None = None,
+    max_retries: int = MAX_RETRIES,
 ) -> dict[str, Any]:
     """Send a chat completion and return the whole assistant message.
 
@@ -115,7 +128,7 @@ def chat_message(
     if tools:
         payload["tools"] = tools
         payload["tool_choice"] = "auto"
-    body = _post(prov, payload, timeout=timeout)
+    body = _post(prov, payload, timeout=timeout, max_retries=max_retries)
     try:
         return body["choices"][0]["message"]
     except (KeyError, IndexError) as exc:
@@ -130,6 +143,7 @@ def chat(
     temperature: float = 0.0,
     max_tokens: int = 8000,
     timeout: int = 120,
+    max_retries: int = MAX_RETRIES,
 ) -> str:
     """Send a chat completion request and return the assistant's text.
 
@@ -146,6 +160,7 @@ def chat(
             "max_tokens": max_tokens,
         },
         timeout=timeout,
+        max_retries=max_retries,
     )
     try:
         return body["choices"][0]["message"]["content"]
@@ -159,8 +174,24 @@ def chat(
 BASE_URL_OVERRIDE = "AGENTCHECK_LLM_BASE_URL"
 
 
-def _post(prov: Provider, payload: dict[str, Any], *, timeout: int) -> dict[str, Any]:
-    """POST a chat-completions request and return the decoded body."""
+def _retry_delay(detail: str, attempt: int) -> float:
+    """Seconds to wait, preferring the provider's own advice."""
+    match = _RETRY_AFTER.search(detail)
+    if match:
+        # A small margin: the window is measured provider-side, and waking up
+        # exactly on the boundary just earns another 429.
+        return min(float(match.group(1)) + 0.5, 30.0)
+    return min(2.0**attempt, 30.0)
+
+
+def _post(
+    prov: Provider, payload: dict[str, Any], *, timeout: int, max_retries: int = MAX_RETRIES
+) -> dict[str, Any]:
+    """POST a chat-completions request and return the decoded body.
+
+    Retries on rate limits only. Other errors are the caller's problem and are
+    surfaced immediately rather than being retried into a longer failure.
+    """
     url = os.environ.get(BASE_URL_OVERRIDE) or prov.base_url
     headers = {"content-type": "application/json"}
     if prov.env_key:
@@ -177,20 +208,45 @@ def _post(prov: Provider, payload: dict[str, Any], *, timeout: int) -> dict[str,
     # confusing failure that looks like a bad API key.
     headers["user-agent"] = "agentcheck/0.1"
 
-    request = urllib.request.Request(
-        url, data=json.dumps(payload).encode("utf-8"), headers=headers
-    )
+    data = json.dumps(payload).encode("utf-8")
 
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        # Surface the response body: providers explain quota and model errors
-        # there, and hiding it turns a two-second fix into a debugging session.
-        detail = exc.read().decode("utf-8", "replace")[:600]
-        raise LLMError(f"{prov.name} returned HTTP {exc.code}: {detail}") from exc
-    except urllib.error.URLError as exc:
-        raise LLMError(f"could not reach {prov.name} at {url}: {exc.reason}") from exc
+    for attempt in range(max_retries + 1):
+        request = urllib.request.Request(url, data=data, headers=headers)
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            if exc.code in (429, 413) and attempt < max_retries:
+                detail = exc.read().decode("utf-8", "replace")
+                time.sleep(_retry_delay(detail, attempt))
+                continue
+            raise _http_error(prov, exc) from exc
+        except urllib.error.URLError as exc:
+            raise LLMError(f"could not reach {prov.name} at {url}: {exc.reason}") from exc
+
+    raise LLMError(f"{prov.name}: still rate limited after {max_retries} retries")
+
+
+def _http_error(prov: Provider, exc: urllib.error.HTTPError) -> LLMError:
+    """Turn a provider HTTP error into one carrying an actionable next step.
+
+    Providers explain quota and model problems in the response body, and hiding
+    it turns a two-second fix into a debugging session.
+    """
+    detail = exc.read().decode("utf-8", "replace")[:600]
+    hint = ""
+    if exc.code == 404 and "model" in detail:
+        hint = (
+            f"\n\nThat model is not available on this key. List what is:\n"
+            f"    agentcheck models --provider {prov.name}"
+        )
+    elif exc.code in (429, 413):
+        hint = (
+            "\n\nThis is a per-minute token budget, not a payload size. "
+            "Retries were already exhausted; wait a minute, lower --max-tokens, "
+            "or run a smaller suite with --seeds-only."
+        )
+    return LLMError(f"{prov.name} returned HTTP {exc.code}: {detail}{hint}")
 
 
 def extract_json(text: str) -> object:
@@ -220,3 +276,30 @@ def extract_json(text: str) -> object:
             except json.JSONDecodeError:
                 continue
     raise LLMError(f"no JSON found in model response: {text[:300]}")
+
+
+def list_models(provider: str | Provider | None = None, *, timeout: int = 30) -> list[str]:
+    """Model ids a key can actually use.
+
+    Provider catalogues change, so a hard-coded default eventually 404s. This
+    turns that from a dead end into one command.
+    """
+    prov = provider if isinstance(provider, Provider) else resolve_provider(provider)
+    url = (os.environ.get(BASE_URL_OVERRIDE) or prov.base_url).replace(
+        "/chat/completions", "/models"
+    )
+    headers = {"user-agent": "agentcheck/0.1"}
+    if prov.env_key and os.environ.get(prov.env_key):
+        headers["authorization"] = f"Bearer {os.environ[prov.env_key]}"
+    request = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise LLMError(
+            f"{prov.name} returned HTTP {exc.code}: "
+            f"{exc.read().decode('utf-8', 'replace')[:300]}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise LLMError(f"could not reach {prov.name}: {exc.reason}") from exc
+    return sorted(m["id"] for m in body.get("data", []) if "id" in m)

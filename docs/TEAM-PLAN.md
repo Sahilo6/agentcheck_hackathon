@@ -11,6 +11,10 @@ changes, A regenerates it and B pulls.
 
 ## Read this first
 
+**`docs/SUBMISSION.md`** is the checklist for actually submitting: what is needed
+from each of us, how to do it, and by when. Start there if you are short on time.
+
+
 **`docs/PROGRESS.md`** (and its printable twin `docs/PROGRESS.pdf`) is the running
 plain-language log of what has been built and what it means. It assumes no
 knowledge of the code. Sahil updates it on every commit, so it is always the

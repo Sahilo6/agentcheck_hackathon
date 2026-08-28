@@ -205,3 +205,44 @@ def test_cli_rejects_a_bad_agent_spec():
         main(["run", "--agent", "not_a_module_at_all:Thing", "--no-pairs"])
     with pytest.raises(SystemExit):
         main(["run", "--agent", "missing-colon", "--no-pairs"])
+
+
+def test_report_paths_create_their_directories(tmp_path, capsys):
+    """`--out reports/x.html` should just work.
+
+    Making someone mkdir first is a papercut that lands on whoever is following
+    the README for the first time, which is exactly the wrong person to annoy.
+    """
+    nested = tmp_path / "reports" / "nested"
+    code = main(
+        [
+            "run", "--agent", "agentcheck.demo:HardenedDevOpsAgent", "--no-pairs",
+            "--out", str(nested / "r.html"),
+            "--json", str(nested / "r.json"),
+            "--junit", str(nested / "r.xml"),
+        ]
+    )
+    capsys.readouterr()
+    assert code == 0
+    for name in ("r.html", "r.json", "r.xml"):
+        assert (nested / name).exists(), name
+
+
+def test_a_run_of_provider_errors_is_not_reported_as_a_score(tmp_path, capsys, monkeypatch):
+    """A suite where every call failed once printed a tidy, entirely fictional
+    pass rate. It has to fail loudly instead.
+    """
+    from agentcheck.llm import LLMError
+
+    monkeypatch.setenv("GROQ_API_KEY", "x")
+    monkeypatch.setattr(
+        "agentcheck.adapters.llm_agent.chat_message",
+        lambda *a, **k: (_ for _ in ()).throw(LLMError("404 model_not_found")),
+    )
+    code = main(["run", "--agent", "llm", "--provider", "groq", "--seeds-only"])
+    out = capsys.readouterr().out
+    assert code == 2
+    assert "failed before the agent acted" in out
+    assert "Not reporting a score" in out
+    # And it must not print a pass rate that someone could screenshot.
+    assert "% pass" not in out

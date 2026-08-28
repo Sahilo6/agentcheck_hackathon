@@ -145,6 +145,49 @@ def _llm_factory(args):
     ), label
 
 
+# Marker the LLM agent puts in its final message when the provider refused the
+# request. Counted after a run because a suite where every call failed still
+# produces a tidy-looking scorecard, and that number would be pure fiction.
+PROVIDER_ERROR = "[provider error]"
+
+
+def _guard_provider_errors(card: Scorecard) -> int | None:
+    """Refuse to present a scorecard built on failed provider calls.
+
+    Returns an exit code if the run should be treated as broken, else None.
+    A silent 14% here once looked exactly like a real result; it was every
+    scenario 404ing on a model name.
+    """
+    broken = [r for r in card.results if r.trace.final_message.startswith(PROVIDER_ERROR)]
+    if not broken:
+        return None
+
+    share = len(broken) / card.total if card.total else 1.0
+    example = broken[0].trace.final_message[len(PROVIDER_ERROR):].strip()
+    print()
+    print(RED(f"  {len(broken)}/{card.total} scenarios failed before the agent acted."))
+    print(DIM(f"  {example[:400]}"))
+    if share < 0.2:
+        print(YELLOW("  Scores below exclude nothing; treat them as incomplete."))
+        return None
+    print()
+    print(RED("  Not reporting a score: these numbers would describe the provider,"))
+    print(RED("  not the agent."))
+    print()
+    return 2
+
+
+def _write(path: str, content: str) -> None:
+    """Write a report, creating its directory if needed.
+
+    `--out reports/x.html` should just work; making the user mkdir first is a
+    papercut that lands on whoever is following the README for the first time.
+    """
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content, encoding="utf-8")
+
+
 def cmd_run(args) -> int:
     suite = _build_suite(args)
     toolset = toolset_for(args.domain)
@@ -184,6 +227,10 @@ def cmd_run(args) -> int:
     if _COLOR:
         sys.stdout.write("\r" + " " * 40 + "\r")
 
+    broken = _guard_provider_errors(card)
+    if broken is not None:
+        return broken
+
     _print_scorecard(card)
 
     diff = None
@@ -207,13 +254,13 @@ def cmd_run(args) -> int:
         append_run(record, args.history)
 
     if args.out:
-        Path(args.out).write_text(to_html(card, title=f"agentcheck: {card.agent_id}", diff=diff))
+        _write(args.out, to_html(card, title=f"agentcheck: {card.agent_id}", diff=diff))
         print(DIM(f"  html   {args.out}"))
     if args.json:
-        Path(args.json).write_text(to_json(card))
+        _write(args.json, to_json(card))
         print(DIM(f"  json   {args.json}"))
     if args.junit:
-        Path(args.junit).write_text(to_junit(card))
+        _write(args.junit, to_junit(card))
         print(DIM(f"  junit  {args.junit}"))
     if args.out or args.json or args.junit:
         print()
@@ -274,7 +321,7 @@ def cmd_demo(args) -> int:
     print()
 
     if args.out:
-        Path(args.out).write_text(to_html(before, title=f"agentcheck: {before.agent_id}"))
+        _write(args.out, to_html(before, title=f"agentcheck: {before.agent_id}"))
         print(DIM(f"  html  {args.out}"))
         print()
     return 0
@@ -319,6 +366,24 @@ def cmd_mutations(args) -> int:
         print(f"  {BOLD(mutation.name)}")
         print(DIM(f"      {mutation.description}"))
         print(DIM(f"      probes: {mutation.probes}"))
+    print()
+    return 0
+
+
+def cmd_models(args) -> int:
+    """List what a key can actually use.
+
+    Provider catalogues change; a default that used to work will eventually
+    404, and this is the shortest path from that error to a working command.
+    """
+    from .llm import list_models, resolve_provider
+
+    provider = resolve_provider(args.provider)
+    models = list_models(provider)
+    print(f"\n  {BOLD(provider.name)}  {DIM(str(len(models)) + ' models')}\n")
+    for model in models:
+        marker = GREEN(" (default)") if model == provider.default_model else ""
+        print(f"    {model}{marker}")
     print()
     return 0
 
@@ -377,12 +442,13 @@ def cmd_mcp_serve(args) -> int:
         print(f"  [{finding.severity}] {finding.mode}: {finding.summary}", file=sys.stderr)
 
     if args.out:
-        Path(args.out).write_text(
+        _write(
+            args.out,
             json.dumps(
                 {"spec": scenario_to_dict(spec), "trace": trace.to_dict()},
                 indent=2,
                 sort_keys=True,
-            )
+            ),
         )
         print(f"agentcheck mcp: wrote {args.out}", file=sys.stderr)
     return 1 if findings else 0
@@ -479,6 +545,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_gen.add_argument("--model")
     p_gen.add_argument("--refresh", action="store_true", help="ignore the cache")
     p_gen.set_defaults(func=cmd_generate)
+
+    p_models = sub.add_parser("models", help="list models a provider key can use")
+    p_models.add_argument("--provider", help="groq, openrouter, together, ollama")
+    p_models.set_defaults(func=cmd_models)
 
     p_mcp = sub.add_parser(
         "mcp-serve",

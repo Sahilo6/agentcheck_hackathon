@@ -53,6 +53,7 @@ class LLMAgent:
         provider: str | None = None,
         model: str | None = None,
         temperature: float = 0.0,
+        max_tokens: int = 1024,
         max_history: int = 40,
         agent_id: str | None = None,
         allow_json_fallback: bool = True,
@@ -60,6 +61,12 @@ class LLMAgent:
         self.provider = resolve_provider(provider)
         self.model = model or self.provider.default_model
         self.temperature = temperature
+        # An agent step emits one tool call or a short summary, never an essay.
+        # The ceiling counts against per-minute token budgets on free tiers, so a
+        # generous default silently rate-limits every request. Groq's free tier
+        # allows 8000 tokens/minute in total; asking for 8000 output alone fails
+        # before the prompt is even counted.
+        self.max_tokens = max_tokens
         self.max_history = max_history
         self.allow_json_fallback = allow_json_fallback
         self.id = agent_id or f"llm:{self.provider.name}:{self.model}"
@@ -106,6 +113,7 @@ class LLMAgent:
                 provider=self.provider,
                 model=self.model,
                 temperature=self.temperature,
+                max_tokens=self.max_tokens,
                 tools=self.tools or None,
             )
         except LLMError as exc:

@@ -14,9 +14,19 @@ npm run preview    # serve the build
 ## Why it works offline
 
 The fixture is bundled into the build rather than fetched, and routing is
-hash-based. That means the built `dist/` opens straight from the filesystem with
-no server and no network, which is the same constraint the HTML report has:
-conference wifi fails, and the demo cannot depend on it.
+hash-based, so the built app needs **no network and no backend**.
+
+It does still need a local server. Vite emits ES modules, and browsers refuse to
+load those over `file://`, so opening `dist/index.html` by double-clicking it
+gives a blank page. One command is enough:
+
+```bash
+npm run preview            # or: python3 -m http.server -d dist
+```
+
+The HTML report and the deck are plain single files with no modules, and those
+*do* open straight from the filesystem. If the demo machine is being difficult,
+they are the reliable fallback.
 
 ## Pages
 
